@@ -1,0 +1,114 @@
+---
+code: |
+  # Try for production token. If not available, use the demo token
+  legal_server_site_to_use = get_config("slsct", {}).get("legalserver online intake site", {}).get("url")
+  legal_server_bearer_token = get_config("slsct", {}).get("legalserver online intake site", {}).get("bearer token")
+
+  if not legal_server_site_to_use:
+    legal_server_site_to_use = get_config("slsct-demo", {}).get("legalserver online intake site", {}).get("url")
+    legal_server_bearer_token = get_config("slsct-demo", {}).get("legalserver online intake site", {}).get("bearer token")
+---
+code: |
+  bearer_token = get_config("legalserver",{}).get(legalserver_site,{}).get("bearer")
+---
+code: |
+  import requests
+  import json
+
+  url = f"https://{ legalserver_site }.legalserver.org/api/v2/matters/{legalserver_matter_uuid}"
+
+  payload = {
+    "marital_status": showifdef("marital_status"),
+    "custom_fields": {
+      "cba_s1_qa_240": showifdef("cba_s1_qa_240"),
+      "are_you_an_individual_debtor_in_a_presently_p_241": showifdef("are_you_an_individual_debtor_in_a_presently_p_241"),
+      "please_provide_case_number_246": showifdef("please_provide_case_number_246"),
+      "are_you_seeking_counsel_to_represent_you_in_a_242": showifdef("are_you_seeking_counsel_to_represent_you_in_a_242"),
+      "if_the_contested_matter_or_adversary_proceedi_243": showifdef("if_the_contested_matter_or_adversary_proceedi_243"),
+      "are_there_hearings_or_deadlines_in_your_matte_244": showifdef("are_there_hearings_or_deadlines_in_your_matte_244"),
+      "please_describe_the_hearings_or_deadlines__306": showifdef("please_describe_the_hearings_or_deadlines__306"),
+
+
+  "do_you_own_your_home__247": showifdef("do_you_own_your_home__247"),
+      "address_and_estimated_fair_market_value_of_pr_248": showifdef("address_and_estimated_fair_market_value_of_pr_248"),
+      "for_each_mortgage_you_have_on_your_house__ple_250": showifdef("for_each_mortgage_you_have_on_your_house__ple_250"),
+      "for_each_lien_other_than_a_mortgage_you_have__251": showifdef("for_each_lien_other_than_a_mortgage_you_have__251"),
+      "is_your_home_the_subject_of_a_pending_foreclo_252": showifdef("is_your_home_the_subject_of_a_pending_foreclo_252"),
+      "if_yes__has_a_sale_date_or_law_day_been_set___253": showifdef("if_yes__has_a_sale_date_or_law_day_been_set___253").format("yyyy-MM-dd"),
+      "do_you_own_any_other_real_estate_or_interests_254": showifdef("do_you_own_any_other_real_estate_or_interests_254"),
+      "please_describe_your_other_real_estate_intere_307": showifdef("please_describe_your_other_real_estate_intere_307"),
+      "do_you_own_a_business_or_any_interest_in_a_bu_255": showifdef("do_you_own_a_business_or_any_interest_in_a_bu_255"),
+      "is_your_landlord_trying_to_evict_you__256": showifdef("is_your_landlord_trying_to_evict_you__256"),
+      "do_you_own_a_vehicle_that_is_leased_or_financ_264": showifdef("do_you_own_a_vehicle_that_is_leased_or_financ_264"),
+      "for_each_such_vehicle__state_the_year__make___257": showifdef("for_each_such_vehicle__state_the_year__make___257"),
+      "if_the_vehicle_has_a_loan__state_the_lender___266": showifdef("if_the_vehicle_has_a_loan__state_the_lender___266"),
+      "if_you_lease_a__vehicle__state_the_year__make_259": showifdef("if_you_lease_a__vehicle__state_the_year__make_259"),
+      "has_your_vehicle_been_repossessed__260": showifdef("has_your_vehicle_been_repossessed__260"),
+      "please_state_when__date___your_percentage_own_263": showifdef("please_state_when__date___your_percentage_own_263"),
+      "are_your_wages_being_garnished__267": showifdef("are_your_wages_being_garnished__267"),
+      "has_a_creditor_recently_attached_or_seized_fu_268": showifdef("has_a_creditor_recently_attached_or_seized_fu_268"),
+      "have_you_ever_filed_for_bankruptcy__269": showifdef("have_you_ever_filed_for_bankruptcy__269"),
+      "where__on_what_date_and_under_which_chapter__270": showifdef("where__on_what_date_and_under_which_chapter__270"),
+      "state_ages_of_all_dependents_under_the_age_of_271": showifdef("state_ages_of_all_dependents_under_the_age_of_271"),
+      "if_you_are_presently_employed_or_self_employe_272": showifdef("if_you_are_presently_employed_or_self_employe_272"),
+      "if_your_spouse_or_partner__is_employed_or_sel_273": showifdef("if_your_spouse_or_partner__is_employed_or_sel_273"),
+      "if_any_other_person_living_with_you_is_employ_274": showifdef("if_any_other_person_living_with_you_is_employ_274"),
+      "if_you_receive_any_government_assistance_of_a_275": showifdef("if_you_receive_any_government_assistance_of_a_275"),
+      "list_all_of_your_noncash_assets_with_an_estim_276": showifdef("list_all_of_your_noncash_assets_with_an_estim_276"),
+      "list_all_of_your_cash_assets__including_accou_277": showifdef("list_all_of_your_cash_assets__including_accou_277"),
+      "does_anyone_owe_you_money_or_can_you_sue_anyo_278": showifdef("does_anyone_owe_you_money_or_can_you_sue_anyo_278"),
+      "please_describe_the_monies_owed_to_you__310": showifdef("please_describe_the_monies_owed_to_you__310"),
+      "have_you_been_involved_in_a_car_accident_with_279": showifdef("have_you_been_involved_in_a_car_accident_with_279"),
+      "are_you_suing_or_threatening_to_sue_anyone_or_287": showifdef("are_you_suing_or_threatening_to_sue_anyone_or_287"),
+      "please_explain_your__potential__suing_case_s__308": showifdef("please_explain_your__potential__suing_case_s__308"),
+      "do_you_own_or_are_you_contributing_to_any_lif_286": showifdef("do_you_own_or_are_you_contributing_to_any_lif_286"),
+      "do_you_have_any_other_assets__280": showifdef("do_you_have_any_other_assets__280"),
+      "please_describe_your_other_assets__309": showifdef("please_describe_your_other_assets__309"),
+      "do_you_expect_a_tax_refund_for_this_or_last_y_281": showifdef("do_you_expect_a_tax_refund_for_this_or_last_y_281"),
+      "please_estimate_federal_refund__282": showifdef("please_estimate_federal_refund__282"),
+      "please_estimate_state_refund__283": showifdef("please_estimate_state_refund__283"),
+      "are_you_entitled_to_receive_alimony_or_child__284": showifdef("are_you_entitled_to_receive_alimony_or_child__284"),
+      "state_the_amount_of_alimony_and_or_child_supp_285": showifdef("state_the_amount_of_alimony_and_or_child_supp_285"),
+      "attorney_name_and_address_organization_name_288": showifdef("attorney_name_and_address_organization_name_288"),
+      "reason_why_attorney_was_not_employed__describ_289": showifdef("reason_why_attorney_was_not_employed__describ_289"),
+      "include_any_other_information_which_you_belie_290": showifdef("include_any_other_information_which_you_belie_290"),
+      "do_you_need_an_attorney_who_speaks_a_language_291": showifdef("do_you_need_an_attorney_who_speaks_a_language_291"),
+      "state_what_language_do_you_need_assistance_wi_292": showifdef("state_what_language_do_you_need_assistance_wi_292"),
+    },
+  }
+  headers = {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+    "Authorization": f"Bearer {bearer_token}"
+  }
+
+  if task_not_yet_performed("submit custom fields"):
+    response = requests.patch(url, json=payload, headers=headers, timeout=(3, 30))
+    mark_task_as_performed("submit custom fields")
+
+  try:
+    response_json = response.json()
+  except json.JSONDecodeError:
+    response_json = {
+        "error": True,
+        "error_text": "Failed to decode JSON response from LegalServer",
+    }
+    log(f"Error decoding JSON response when submitting LegalServer: {response.text}")
+  run_custom_fields_update = True
+---
+id: error
+continue button field: api_error
+question: |
+  There was an error sending your information to Mid Missouri Legal Services
+subquestion: |
+  You can still continue to make an appointment with a staff person.
+
+  You can mention this session ID to the staff person: `${ current_context().session }`
+  and they may be able to retrieve your information.
+
+  The specific error was:
+
+  ```
+  ${ response.text }
+  ```
+---

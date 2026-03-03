@@ -1,0 +1,844 @@
+metadata:
+  title: |
+    Bankruptcy Pro Bono Service Application
+  short title: |
+    CBA CH7 Pro Bono
+  estimated_completion_minutes: ""
+  estimated_completion_delta: ""
+  tags: []
+  authors:
+    - Jim Graszer
+  original_form: []
+  original_form_published_on: ""
+  allowed_courts: []
+  typical_role: "plaintiff"
+  al_weaver_version: "1.11.0"
+  generated_on: "2026-02-19"
+  languages:
+    - en
+  jurisdiction: ""
+  review_date: 2026-02-19
+  form_titles:
+    - Bankruptcy Pro Bono Service Application
+  form_numbers: []
+  update_notes: |
+---
+include:
+  - docassemble.AssemblyLine:assembly_line.yml
+  - docassemble.WorkflowDocs:support_legalserver.yml
+  - support_legalserver_custom.yml
+---
+default screen parts:
+  right: |
+    % if showifdef("stored_data") and showifdef("""legalserver_data["case_number"]"""):
+    **Matter: ${ legalserver_data["case_number"] }**
+
+    **Client: ${ showifdef("""legalserver_data["client_full_name"]""") }**
+
+    % if showifdef("clients[0].language_name"):
+    **Language: ${ showifdef("clients[0].language_name") }**
+    % endif
+    % endif
+---
+# Get some information about what client this is for. Let's see if Legal Server data was sent over
+code: |
+  if showifdef("legalserver_site"):
+    wfd_configuration_key = legalserver_site
+  else:
+    wfd_configuration_key = "UNDEFINED"
+---
+code: |
+  wfd_storage_method = get_config("workflowdocs",{}).get("clients").get(wfd_configuration_key,{}).get("storage", {}).get("type") # Usually one of S3 or SharePoint
+---
+---
+code: |
+  # This controls the default country and list of states in address field questions
+  AL_DEFAULT_COUNTRY = "US"
+---
+code: |
+  # This controls the default state in address field questions
+  AL_DEFAULT_STATE = "CT"
+---
+code: |
+  al_form_type = "starts_case" 
+---
+objects:
+  - client: ALIndividual
+---
+sections:
+  - section_intro: Introduction
+  - section_priority: Priority Concerns
+  - section_financial: Personal/Financial Data
+  - section_attorney: Efforts to Obtain an Attorney
+  - section_review: Review your answers
+  - section_download: Sign and Download
+---
+# interview order block
+mandatory: True
+code: |  
+  ## Checking LegalServer
+  checked_for_stashed_data
+  if stored_data:
+    set_legalserver_site
+    raise_errors_getting_legalserver_data
+
+  wfd_configuration_key 
+  ## end LS checks
+
+  nav.set_section('section_intro')
+  set_progress(5)
+  welcome
+  client.name.first
+  client.address.address
+  client.mailing_address.address
+
+  nav.set_section('section_priority')
+  set_progress(15)
+  cba_s1_qa_240
+  do_you_own_your_home__247
+  do_you_own_any_other_real_estate_or_interests_254
+  is_your_landlord_trying_to_evict_you__256
+  are_your_wages_being_garnished__267
+  have_you_ever_filed_for_bankruptcy__269
+
+  nav.set_section('section_financial')
+  set_progress(45)
+  marital_status
+  if_you_are_presently_employed_or_self_employe_272
+  if_you_receive_any_government_assistance_of_a_275
+  list_all_of_your_noncash_assets_with_an_estim_276
+  does_anyone_owe_you_money_or_can_you_sue_anyo_278
+  do_you_own_or_are_you_contributing_to_any_lif_286
+  do_you_expect_a_tax_refund_for_this_or_last_y_281
+  are_you_entitled_to_receive_alimony_or_child__284
+  
+  nav.set_section('section_attorney')
+  set_progress(85)
+  attorney_name_and_address_organization_name_288
+  include_any_other_information_which_you_belie_290
+  do_you_need_an_attorney_who_speaks_a_language_291
+
+  nav.set_section('section_review')
+  set_progress(95)
+  ask_review
+
+  nav.set_section('section_download')
+  set_progress(100)
+  client.signature
+  signature_date
+  wait_screen
+  if stored_data:
+    # After documents are generated, send to Legal Server
+    send_all_to_legalserver
+    run_custom_fields_update
+  download_docs
+---
+id: welcome
+question: |
+  Bankruptcy Pro Bono Service Application
+subquestion: |
+  The Connecticut Bar Association Commercial Law and Bankruptcy Section offers volunteer attorneys to represent qualified individuals or married couples in Chapter 7 bankruptcy cases or adversary proceedings at no cost.
+
+  #### To be considered for pro bono counsel, you must:
+
+  1. Have attempted in good faith to retain at least one bankruptcy attorney on affordable terms
+  2. Meet certain financial eligibility standards
+  3. Complete this application fully and accurately
+
+  #### Financial Eligibility Guidelines
+
+  - **Income**: Your total household income and benefits must be less than **150% of federal poverty guidelines** ([view current guidelines](https://aspe.hhs.gov/poverty-guidelines))
+  - **Vehicles**: Up to $7,500 value per person
+  - **Non-cash assets**: Up to $5,000 (individual) or $10,000 (married couple)
+  - **Cash assets**: Up to $3,000 total (excluding retirement accounts)
+  - **Retirement accounts**: Up to $10,000 (individual) or $20,000 (married couple)
+
+  #### Important Notes
+
+  - Your application will be signed under penalty of perjury
+  - Referral to an attorney is not guaranteed, even if you qualify
+  - The referred attorney may determine they cannot represent you or that Chapter 7 is not in your best interest
+  - You remain responsible for any court filing fees and necessary expenses
+continue button field: welcome
+---
+id: your name
+sets:
+  - client.name.first
+  - client.name.last
+  - client.name.middle
+  - client.name.suffix
+question: |
+  What is your name?
+fields:
+  - code: |
+      client.name_fields()
+---
+id: your address
+question: |
+  What is your address?
+subquestion: |
+  This is your current, physical address. Mailing address will be entered on another screen.
+fields:
+  - Street address: client.address.address
+    address autocomplete: True
+  - Address is a: client.address.address_type
+    datatype: radio
+    choices:
+      - Apartment: apt
+      - Suite: suite
+      - Floor: floor
+      - Other (including house): other
+  - Apartment/Suite/Floor number: client.address.unit
+    required: False
+  - City or Town: client.address.city
+  - State: client.address.state
+    required: False
+    code: |
+      states_list(country_code=AL_DEFAULT_COUNTRY)
+    default: ${ AL_DEFAULT_STATE }
+  - ZIP: client.address.zip
+  - Daytime Phone Number (optional): client.phone_number
+    required: false
+  - Mobile Telephone Number (optional): client.mobile_number
+    required: false
+  - Email address (optional): client.email
+    required: false
+---
+id: your mailing address
+question: |
+  What is your mailing address?
+fields:
+  - Your mailing address is: client.mailing_address
+    datatype: object_radio
+    choices:
+      - client.mailing_address if defined("client.mailing_address.address") else client.address if defined("client.address.address") else None
+    object labeler: |
+      lambda y: y.on_one_line()
+    none of the above: |
+      Somewhere else
+    disable others: True
+    show if:
+      code: |
+        defined("client.address.address")
+    default: |
+      client.address
+  - ${ client.address.address_label }: client.mailing_address.address
+    address autocomplete: True
+  - Address is a: client.mailing_address.address_type
+    datatype: radio
+    choices:
+      - Apartment: apt
+      - Suite: suite
+      - Floor: floor
+      - Other (including house): other
+  - Apartment/Suite/Floor number: client.mailing_address.unit
+    required: False
+  - ${ client.address.city_label }: client.mailing_address.city
+  - ${ client.address.state_label }: client.mailing_address.state
+    code: |
+      states_list(country_code=AL_DEFAULT_COUNTRY)
+    default: ${ AL_DEFAULT_STATE }
+  - ${ client.address.zip_label }: client.mailing_address.zip
+---
+# Section I: Priority Concerns
+---
+id: pending court
+question: |
+  Pending Court Matters
+subquestion: |
+  Please answer the following questions about any pending court matters.
+fields:
+  - Are you requesting counsel in connection with a matter that is already filed and pending before the Court?: cba_s1_qa_240
+    datatype: yesnoradio
+  - Are you an individual debtor in a presently pending Chapter 7 bankruptcy case?: are_you_an_individual_debtor_in_a_presently_p_241
+    datatype: yesnoradio
+    show if: cba_s1_qa_240
+  - Please provide case number: please_provide_case_number_246
+    datatype: text
+    show if: are_you_an_individual_debtor_in_a_presently_p_241
+  - Are you seeking counsel to represent you in a contested matter or adversary proceeding?: are_you_seeking_counsel_to_represent_you_in_a_242
+    datatype: yesnoradio
+    show if: cba_s1_qa_240
+  - If the contested matter or adversary proceeding is pending, please briefly describe the case, proceeding or matter and provide case number: if_the_contested_matter_or_adversary_proceedi_243
+    label above field: True
+    datatype: area
+    rows: 2
+    show if: are_you_seeking_counsel_to_represent_you_in_a_242
+  - Are there hearings or deadlines in your matter within the next 30 days?: are_there_hearings_or_deadlines_in_your_matte_244
+    datatype: yesnoradio
+    show if: cba_s1_qa_240
+  - If so, please describe the hearings or deadlines: please_describe_the_hearings_or_deadlines__306
+    label above field: True
+    datatype: area
+    rows: 2
+    show if: are_there_hearings_or_deadlines_in_your_matte_244
+---
+id: home ownership
+question: |
+  Home Ownership
+fields:
+  - Do you own your home?: do_you_own_your_home__247
+    datatype: yesnoradio
+  - Address and estimated fair market value of property: address_and_estimated_fair_market_value_of_pr_248
+    label above field: True
+    datatype: area
+    rows: 2
+    show if: do_you_own_your_home__247
+  - "For each mortgage you have on your house, please state the name of the mortgage company, balance owing and the total arrearage, if any:": for_each_mortgage_you_have_on_your_house__ple_250
+    label above field: True
+    datatype: area
+    rows: 2
+    show if: do_you_own_your_home__247
+  - "For each lien other than a mortgage you have on your house, please state the name of the lien holder and the balance owing:": for_each_lien_other_than_a_mortgage_you_have__251
+    label above field: True
+    datatype: area
+    rows: 2
+    show if: do_you_own_your_home__247
+  - Is your home the subject of a pending foreclosure action or tax sale?: is_your_home_the_subject_of_a_pending_foreclo_252
+    datatype: yesnoradio
+    show if: do_you_own_your_home__247
+  - "If yes, has a sale date or Law Day been set? If so, what is the date:": if_yes__has_a_sale_date_or_law_day_been_set___253
+    datatype: date
+    show if: is_your_home_the_subject_of_a_pending_foreclo_252
+---
+id: other interests
+question: |
+  Other Real Estate and Business
+fields:
+  - Do you own any other real estate or interests in any other real estate?: do_you_own_any_other_real_estate_or_interests_254
+    datatype: yesnoradio
+  - Describe the other real estate or interests: please_describe_your_other_real_estate_intere_307
+    label above field: True
+    datatype: area
+    rows: 2
+    show if: do_you_own_any_other_real_estate_or_interests_254
+  - Do you own a business or any interest in a business?: do_you_own_a_business_or_any_interest_in_a_bu_255
+    datatype: yesnoradio
+---
+id: housing and vehicles
+question: |
+  Housing and Vehicles
+fields:
+  - Is your landlord trying to evict you?: is_your_landlord_trying_to_evict_you__256
+    datatype: yesnoradio
+  - Do you own or lease a vehicle?: do_you_own_a_vehicle_that_is_leased_or_financ_264
+    datatype: yesnoradio
+  - "If you own a vehicle, for each such vehicle, state the year, make, model number, and mileage:": for_each_such_vehicle__state_the_year__make___257
+    label above field: True
+    datatype: area
+    rows: 2
+    show if: do_you_own_a_vehicle_that_is_leased_or_financ_264
+  - "If the vehicle has a loan, state the lender, normal monthly payment, and number of payments you are behind, if any:": if_the_vehicle_has_a_loan__state_the_lender___266
+    label above field: True
+    datatype: area
+    rows: 2
+    show if: do_you_own_a_vehicle_that_is_leased_or_financ_264
+  - "If you lease a vehicle, state the year, make and model for the vehicle, normal monthly lease payments, and number of payments you are behind, if any:": if_you_lease_a__vehicle__state_the_year__make_259
+    label above field: True
+    datatype: area
+    rows: 2
+    show if: do_you_own_a_vehicle_that_is_leased_or_financ_264
+  - Has your vehicle been repossessed?: has_your_vehicle_been_repossessed__260
+    datatype: yesnoradio
+    show if: do_you_own_a_vehicle_that_is_leased_or_financ_264
+  - "If so, please state when, your percentage ownership, and estimated value of your interest, if any:": please_state_when__date___your_percentage_own_263
+    label above field: True
+    datatype: area
+    rows: 2
+    show if: has_your_vehicle_been_repossessed__260
+---
+id: banking
+question: |
+  Garnishment and Bank Seizure
+fields:
+  - Are your wages being garnished?: are_your_wages_being_garnished__267
+    datatype: yesnoradio
+  - Has a creditor recently attached or seized funds from your bank account?: has_a_creditor_recently_attached_or_seized_fu_268
+    datatype: yesnoradio
+---
+id: bankruptcy
+question: |
+  Prior Bankruptcy
+fields:
+  - Have you ever filed for bankruptcy?: have_you_ever_filed_for_bankruptcy__269
+    datatype: yesnoradio
+  - "If so, where, on what date and under which Chapter?": where__on_what_date_and_under_which_chapter__270
+    datatype: area
+    show if: have_you_ever_filed_for_bankruptcy__269
+---
+# Section II: Personal/Financial Data
+---
+id: marital status
+question: |
+  Marital Status and Dependents
+fields:
+  - "What is the client's marital status?": marital_status
+    datatype: radio
+    choices:
+      - Married
+      - Single
+      - Divorced
+      - Widowed
+  - "State ages of all dependents under the age of 18 or over the age of 65 who have no separate income living with you at your residence:": state_ages_of_all_dependents_under_the_age_of_271
+    label above field: True
+    datatype: area
+    rows: 5
+---
+id: employment and income
+question: |
+  Employment and Income
+fields:
+  - "If you are presently employed or self-employed, state your GROSS monthly income; state name of employer and start date of employment:": if_you_are_presently_employed_or_self_employe_272
+    label above field: True
+    datatype: currency
+    default: 0
+  - "If your spouse or partner is employed or self-employed and lives with you, state the gross monthly income of your spouse or partner:": if_your_spouse_or_partner__is_employed_or_sel_273
+    label above field: True
+    datatype: currency
+    default: 0
+  - "If any other person living with you is employed or self-employed, state that person's gross monthly income:": if_any_other_person_living_with_you_is_employ_274
+    label above field: True
+    datatype: currency
+    default: 0
+---
+id: government assistance
+question: |
+  Government Assistance
+fields:
+  - "If you receive any government assistance of any kind, including social security, social security disability, unemployment, or any other federal or state benefits, including non-cash benefits such as SNAP or Section 8 Housing benefits, describe and state the monthly benefit for each below:": if_you_receive_any_government_assistance_of_a_275
+    label above field: True
+    datatype: area
+    rows: 5
+    required: False
+---
+id: assets
+question: |
+  Assets
+fields:
+  - "List all of your non-cash assets with an estimated value for same. Such assets include without limitation real estate, reasonably necessary household goods and furnishings, electronics, clothing, jewelry, causes of action, and any other property not in the form of cash, a bank account, or some other financial account:": list_all_of_your_noncash_assets_with_an_estim_276
+    label above field: True
+    datatype: area
+    rows: 5
+  - "List all of your cash assets, including account name and balance. Such assets include without limitation cash, bank balances, retirement accounts, and all other financial accounts:": list_all_of_your_cash_assets__including_accou_277
+    label above field: True
+    datatype: area
+    rows: 5
+---
+id: money owed and lawsuits
+question: |
+  Money Owed and Lawsuits
+fields:
+  - Does anyone owe you money or can you sue anyone for money or for any other reason?: does_anyone_owe_you_money_or_can_you_sue_anyo_278
+    datatype: yesnoradio
+  - "If so, please describe:": please_describe_the_monies_owed_to_you__310
+    label above field: True
+    datatype: area
+    show if: does_anyone_owe_you_money_or_can_you_sue_anyo_278
+  - Have you been involved in a car accident within the past two years?: have_you_been_involved_in_a_car_accident_with_279
+    datatype: yesnoradio
+  - Are you suing or threatening to sue anyone or have any reason to sue anyone now?: are_you_suing_or_threatening_to_sue_anyone_or_287
+    datatype: yesnoradio
+  - "If so, please describe:": please_explain_your__potential__suing_case_s__308
+    label above field: True
+    datatype: area
+    show if: are_you_suing_or_threatening_to_sue_anyone_or_287
+---
+id: insurance and other assets
+question: |
+  Insurance and Other Assets
+fields:
+  - Do you own or are you contributing to any life insurance policies with a cash value?: do_you_own_or_are_you_contributing_to_any_lif_286
+    datatype: yesnoradio
+  - Do you have any other assets?: do_you_have_any_other_assets__280
+    datatype: yesnoradio
+  - "If so, please list:": please_describe_your_other_assets__309
+    label above field: True
+    datatype: area
+    rows: 5
+    show if: do_you_have_any_other_assets__280
+---
+id: tax refunds
+question: |
+  Tax Refunds
+fields:
+  - Do you expect a tax refund for this or last year?: do_you_expect_a_tax_refund_for_this_or_last_y_281
+    datatype: yesnoradio
+  - "Please estimate Federal refund:": please_estimate_federal_refund__282
+    datatype: currency
+    show if: do_you_expect_a_tax_refund_for_this_or_last_y_281
+  - "Please estimate State refund:": please_estimate_state_refund__283
+    datatype: currency
+    show if: do_you_expect_a_tax_refund_for_this_or_last_y_281
+---
+id: alimony and child support
+question: |
+  Alimony and Child Support
+fields:
+  - Are you entitled to receive alimony or child support?: are_you_entitled_to_receive_alimony_or_child__284
+    datatype: yesnoradio
+  - "If yes, state the amount of alimony and/or child support you are receiving per month:": state_the_amount_of_alimony_and_or_child_supp_285
+    datatype: currency
+    show if: are_you_entitled_to_receive_alimony_or_child__284
+---
+# Section III: Efforts to Obtain an Attorney
+---
+id: previous attorney
+question: |
+  Efforts to Obtain an Attorney
+subquestion: |
+  Please provide the following information concerning one attorney whom you have spoken with about handling your bankruptcy case or any matter arising out of or relating to your bankruptcy case within the past year.
+fields:
+  - "Attorney Name & Address:": attorney_name_and_address_organization_name_288
+    label above field: True
+    datatype: area
+    rows: 2
+  - "Reason why attorney was not employed; describe payment terms discussed and why you could not meet them:": reason_why_attorney_was_not_employed__describ_289
+    label above field: True
+    datatype: area
+    rows: 2
+---
+id: additional info
+question: |
+  Additional Information
+fields:
+  - "Include any other information which you believe supports your claim that you cannot reasonably afford to employ an attorney:": include_any_other_information_which_you_belie_290
+    label above field: True
+    datatype: area
+    rows: 2
+    required: False
+---
+id: language
+question: |
+  Language Assistance
+fields:
+  - Do you need an attorney who speaks a language other than English?: do_you_need_an_attorney_who_speaks_a_language_291
+    datatype: yesnoradio
+  - "What language do you need assistance with?": state_what_language_do_you_need_assistance_wi_292
+    datatype: radio
+    choices:
+      - Spanish
+      - Mandarin Chinese
+      - Arabic
+      - French
+      - Hindi
+      - Vietnamese
+      - Korean
+      - Russian
+      - Tagalog (Filipino)
+      - Bengali
+      - Other
+    show if: do_you_need_an_attorney_who_speaks_a_language_291
+---
+id: signatures
+question: |
+  ${ client.name.first }, please read and sign below:
+subquestion: |
+  I declare under the penalties of perjury that I have reviewed the Notice to All Parties Seeking Referral to Pro Bono Counsel For Chapter 7 Bankruptcy (the (“Notice”) and Application for Appointment of Attorney and that my answers to the foregoing questions are true and complete to the best of my knowledge. I understand that I have a continuing obligation to the Panel Administrator and any attorney to whom I have been referred to update them on any material changes to my income, benefits and/or assets that may affect my eligibility under this program.
+
+  I understand that any attorney appointed is volunteering his or her time to help me and is not being paid by the court or government. I understand that if I am referred to an attorney and my attorney learns, either from me or elsewhere, that I can afford an attorney, my attorney may give that information to the Panel Administrator or the Court. If an attorney who may be referred to me determines that my application contains any inaccurate or incomplete information, I understand this is grounds for refusing to represent me and to terminate any representation, and that my failure to fully and accurately complete the application may be shared by the referred counsel to the Panel Administrator and/or the Court and such others as counsel may deem necessary in their discretion. I understand that any counsel to whom I am referred may decline to represent me for any reason, and, further, my referred counsel may deem it appropriate to seek to withdraw after appearing on my behalf and disclose information regarding my financial affairs at such attorney’s discretion.
+
+  I understand and agree that the Connecticut Bar Association, the Connecticut Bar Association’s Commercial Law and Bankruptcy Section (including any individual member or subcommittee thereof), and any Panel Administrator (including any individual attorney serving as a member of the Panel Administrator) and Statewide Legal Services of CT, Inc. shall have no liability or responsibility to me for any appointment of pro bono counsel or any action or omission of pro bono counsel that is appointed or offered for my benefit, and that they shall NOT be responsible for supervising or monitoring Panel Attorneys and shall have no responsibility to any applicant or to any individual who has received or requested pro bono counsel assistance
+
+  In each of the foregoing circumstances I hereby waive my privileges of attorney/client confidentiality to the extent necessary for my appointed attorney to disclose my financial affairs regarding my continuing eligibility or lack thereof under the criteria set forth in the Notice and under this pro bono program or to be relieved from representation as my counsel. I understand that my sending this application by way of electronic or email transmission, as signed and dated by me below, is legally binding on and enforceable against me.
+
+signature: client.signature
+under: |
+  ${ client.name_full() }
+required: False
+---
+code: |
+  signature_date = today()
+---
+id: ask review
+question: |
+  Would you like to review your answers?
+subquestion: |
+  Click the "Edit answers" button to fix any mistakes.
+
+  ${ action_button_html(url_action('review_answers'), label='Edit answers', color='info') }
+
+  Continue on to sign and complete the document.
+continue button field: ask_review
+---
+id: review screen
+event: review_answers
+question: |
+  Review your answers
+subquestion: |
+  Look over your answers below. Click "Edit" to make changes.
+review:
+  - note: |
+      ### Pending Court Matters
+  - Edit: cba_s1_qa_240
+    button: |
+      **Requesting counsel for pending matter?**: ${ word(yesno(cba_s1_qa_240)) }
+  - Edit: are_you_an_individual_debtor_in_a_presently_p_241
+    button: |
+      **Individual debtor in pending Chapter 7?**: ${ word(yesno(are_you_an_individual_debtor_in_a_presently_p_241)) }
+    show if: cba_s1_qa_240
+  - Edit: please_provide_case_number_246
+    button: |
+      **Case number**: ${ please_provide_case_number_246 }
+    show if: are_you_an_individual_debtor_in_a_presently_p_241
+  - Edit: are_you_seeking_counsel_to_represent_you_in_a_242
+    button: |
+      **Seeking counsel for contested matter?**: ${ word(yesno(are_you_seeking_counsel_to_represent_you_in_a_242)) }
+    show if: cba_s1_qa_240
+  - Edit: if_the_contested_matter_or_adversary_proceedi_243
+    button: |
+      **Contested matter description**: ${ if_the_contested_matter_or_adversary_proceedi_243 }
+    show if: are_you_seeking_counsel_to_represent_you_in_a_242
+  - Edit: are_there_hearings_or_deadlines_in_your_matte_244
+    button: |
+      **Hearings/deadlines in next 30 days?**: ${ word(yesno(are_there_hearings_or_deadlines_in_your_matte_244)) }
+    show if: cba_s1_qa_240
+  - Edit: please_describe_the_hearings_or_deadlines__306
+    button: |
+      **Hearings/deadlines description**: ${ please_describe_the_hearings_or_deadlines__306 }
+    show if: are_there_hearings_or_deadlines_in_your_matte_244
+  - note: |
+      ### Home Ownership
+  - Edit: do_you_own_your_home__247
+    button: |
+      **Do you own your home?**: ${ word(yesno(do_you_own_your_home__247)) }
+  - Edit: address_and_estimated_fair_market_value_of_pr_248
+    button: |
+      **Home address and value**: ${ address_and_estimated_fair_market_value_of_pr_248 }
+    show if: do_you_own_your_home__247
+  - Edit: for_each_mortgage_you_have_on_your_house__ple_250
+    button: |
+      **Mortgage details**: ${ for_each_mortgage_you_have_on_your_house__ple_250 }
+    show if: do_you_own_your_home__247
+  - Edit: for_each_lien_other_than_a_mortgage_you_have__251
+    button: |
+      **Lien details**: ${ for_each_lien_other_than_a_mortgage_you_have__251 }
+    show if: do_you_own_your_home__247
+  - Edit: is_your_home_the_subject_of_a_pending_foreclo_252
+    button: |
+      **Pending foreclosure or tax sale?**: ${ word(yesno(is_your_home_the_subject_of_a_pending_foreclo_252)) }
+    show if: do_you_own_your_home__247
+  - Edit: if_yes__has_a_sale_date_or_law_day_been_set___253
+    button: |
+      **Sale date or Law Day**: ${ if_yes__has_a_sale_date_or_law_day_been_set___253 }
+    show if: is_your_home_the_subject_of_a_pending_foreclo_252
+  - note: |
+      ### Other Real Estate and Business
+  - Edit: do_you_own_any_other_real_estate_or_interests_254
+    button: |
+      **Own other real estate?**: ${ word(yesno(do_you_own_any_other_real_estate_or_interests_254)) }
+  - Edit: please_describe_your_other_real_estate_intere_307
+    button: |
+      **Other real estate description**: ${ please_describe_your_other_real_estate_intere_307 }
+    show if: do_you_own_any_other_real_estate_or_interests_254
+  - Edit: do_you_own_a_business_or_any_interest_in_a_bu_255
+    button: |
+      **Own a business?**: ${ word(yesno(do_you_own_a_business_or_any_interest_in_a_bu_255)) }
+  - note: |
+      ### Housing and Vehicles
+  - Edit: is_your_landlord_trying_to_evict_you__256
+    button: |
+      **Landlord trying to evict you?**: ${ word(yesno(is_your_landlord_trying_to_evict_you__256)) }
+  - Edit: do_you_own_a_vehicle_that_is_leased_or_financ_264
+    button: |
+      **Own or lease a vehicle?**: ${ word(yesno(do_you_own_a_vehicle_that_is_leased_or_financ_264)) }
+  - Edit: for_each_such_vehicle__state_the_year__make___257
+    button: |
+      **Vehicle details (owned)**: ${ for_each_such_vehicle__state_the_year__make___257 }
+    show if: do_you_own_a_vehicle_that_is_leased_or_financ_264
+  - Edit: if_the_vehicle_has_a_loan__state_the_lender___266
+    button: |
+      **Vehicle loan details**: ${ if_the_vehicle_has_a_loan__state_the_lender___266 }
+    show if: do_you_own_a_vehicle_that_is_leased_or_financ_264
+  - Edit: if_you_lease_a__vehicle__state_the_year__make_259
+    button: |
+      **Leased vehicle details**: ${ if_you_lease_a__vehicle__state_the_year__make_259 }
+    show if: do_you_own_a_vehicle_that_is_leased_or_financ_264
+  - Edit: has_your_vehicle_been_repossessed__260
+    button: |
+      **Vehicle repossessed?**: ${ word(yesno(has_your_vehicle_been_repossessed__260)) }
+    show if: do_you_own_a_vehicle_that_is_leased_or_financ_264
+  - Edit: please_state_when__date___your_percentage_own_263
+    button: |
+      **Repossession details**: ${ please_state_when__date___your_percentage_own_263 }
+    show if: has_your_vehicle_been_repossessed__260
+  - note: |
+      ### Garnishment and Bank Seizure
+  - Edit: are_your_wages_being_garnished__267
+    button: |
+      **Wages being garnished?**: ${ word(yesno(are_your_wages_being_garnished__267)) }
+  - Edit: has_a_creditor_recently_attached_or_seized_fu_268
+    button: |
+      **Bank account seized?**: ${ word(yesno(has_a_creditor_recently_attached_or_seized_fu_268)) }
+  - note: |
+      ### Prior Bankruptcy
+  - Edit: have_you_ever_filed_for_bankruptcy__269
+    button: |
+      **Ever filed bankruptcy?**: ${ word(yesno(have_you_ever_filed_for_bankruptcy__269)) }
+  - Edit: where__on_what_date_and_under_which_chapter__270
+    button: |
+      **Previous bankruptcy details**: ${ where__on_what_date_and_under_which_chapter__270 }
+    show if: have_you_ever_filed_for_bankruptcy__269
+  - note: |
+      ### Marital Status and Dependents
+  - Edit: marital_status
+    button: |
+      **Marital status**: ${ marital_status }
+  - Edit: state_ages_of_all_dependents_under_the_age_of_271
+    button: |
+      **Dependents**: ${ state_ages_of_all_dependents_under_the_age_of_271 }
+  - note: |
+      ### Employment and Income
+  - Edit: if_you_are_presently_employed_or_self_employe_272
+    button: |
+      **Your employment/income**: ${ if_you_are_presently_employed_or_self_employe_272 }
+  - Edit: if_your_spouse_or_partner__is_employed_or_sel_273
+    button: |
+      **Spouse/partner income**: ${ showifdef('if_your_spouse_or_partner__is_employed_or_sel_273', 'Not provided') }
+  - Edit: if_any_other_person_living_with_you_is_employ_274
+    button: |
+      **Other household income**: ${ showifdef('if_any_other_person_living_with_you_is_employ_274', 'Not provided') }
+  - note: |
+      ### Government Assistance
+  - Edit: if_you_receive_any_government_assistance_of_a_275
+    button: |
+      **Government assistance**: ${ showifdef('if_you_receive_any_government_assistance_of_a_275', 'Not provided') }
+  - note: |
+      ### Assets
+  - Edit: list_all_of_your_noncash_assets_with_an_estim_276
+    button: |
+      **Non-cash assets**: ${ list_all_of_your_noncash_assets_with_an_estim_276 }
+  - Edit: list_all_of_your_cash_assets__including_accou_277
+    button: |
+      **Cash assets**: ${ list_all_of_your_cash_assets__including_accou_277 }
+  - note: |
+      ### Money Owed and Lawsuits
+  - Edit: does_anyone_owe_you_money_or_can_you_sue_anyo_278
+    button: |
+      **Anyone owe you money?**: ${ word(yesno(does_anyone_owe_you_money_or_can_you_sue_anyo_278)) }
+  - Edit: please_describe_the_monies_owed_to_you__310
+    button: |
+      **Money owed description**: ${ please_describe_the_monies_owed_to_you__310 }
+    show if: does_anyone_owe_you_money_or_can_you_sue_anyo_278
+  - Edit: have_you_been_involved_in_a_car_accident_with_279
+    button: |
+      **Car accident in past 2 years?**: ${ word(yesno(have_you_been_involved_in_a_car_accident_with_279)) }
+  - Edit: are_you_suing_or_threatening_to_sue_anyone_or_287
+    button: |
+      **Suing or threatening to sue?**: ${ word(yesno(are_you_suing_or_threatening_to_sue_anyone_or_287)) }
+  - Edit: please_explain_your__potential__suing_case_s__308
+    button: |
+      **Lawsuit description**: ${ please_explain_your__potential__suing_case_s__308 }
+    show if: are_you_suing_or_threatening_to_sue_anyone_or_287
+  - note: |
+      ### Insurance and Other Assets
+  - Edit: do_you_own_or_are_you_contributing_to_any_lif_286
+    button: |
+      **Life insurance with cash value?**: ${ word(yesno(do_you_own_or_are_you_contributing_to_any_lif_286)) }
+  - Edit: do_you_have_any_other_assets__280
+    button: |
+      **Other assets?**: ${ word(yesno(do_you_have_any_other_assets__280)) }
+  - Edit: please_describe_your_other_assets__309
+    button: |
+      **Other assets description**: ${ please_describe_your_other_assets__309 }
+    show if: do_you_have_any_other_assets__280
+  - note: |
+      ### Tax Refunds
+  - Edit: do_you_expect_a_tax_refund_for_this_or_last_y_281
+    button: |
+      **Expecting a tax refund?**: ${ word(yesno(do_you_expect_a_tax_refund_for_this_or_last_y_281)) }
+  - Edit: please_estimate_federal_refund__282
+    button: |
+      **Estimated federal refund**: ${ currency(please_estimate_federal_refund__282) }
+    show if: do_you_expect_a_tax_refund_for_this_or_last_y_281
+  - Edit: please_estimate_state_refund__283
+    button: |
+      **Estimated state refund**: ${ currency(please_estimate_state_refund__283) }
+    show if: do_you_expect_a_tax_refund_for_this_or_last_y_281
+  - note: |
+      ### Alimony and Child Support
+  - Edit: are_you_entitled_to_receive_alimony_or_child__284
+    button: |
+      **Entitled to alimony/child support?**: ${ word(yesno(are_you_entitled_to_receive_alimony_or_child__284)) }
+  - Edit: state_the_amount_of_alimony_and_or_child_supp_285
+    button: |
+      **Monthly alimony/child support amount**: ${ currency(state_the_amount_of_alimony_and_or_child_supp_285) }
+    show if: are_you_entitled_to_receive_alimony_or_child__284
+  - note: |
+      ### Efforts to Obtain an Attorney
+  - Edit: attorney_name_and_address_organization_name_288
+    button: |
+      **Attorney contacted**: ${ attorney_name_and_address_organization_name_288 }
+  - Edit: reason_why_attorney_was_not_employed__describ_289
+    button: |
+      **Reason attorney not employed**: ${ reason_why_attorney_was_not_employed__describ_289 }
+  - note: |
+      ### Additional Information
+  - Edit: include_any_other_information_which_you_belie_290
+    button: |
+      **Additional information**: ${ showifdef('include_any_other_information_which_you_belie_290', 'Not provided') }
+  - note: |
+      ### Language Assistance
+  - Edit: do_you_need_an_attorney_who_speaks_a_language_291
+    button: |
+      **Need attorney who speaks another language?**: ${ word(yesno(do_you_need_an_attorney_who_speaks_a_language_291)) }
+  - Edit: state_what_language_do_you_need_assistance_wi_292
+    button: |
+      **Language needed**: ${ state_what_language_do_you_need_assistance_wi_292 }
+    show if: do_you_need_an_attorney_who_speaks_a_language_291
+---
+id: waiting
+continue button field: wait_screen
+question: |
+  Almost done
+subquestion: |
+  After you click **Next**, it may take a few moments to send data and generate the document.
+  
+  ###### You do not need to refresh your screen. Hang in there!
+  
+  [NEWLINE]
+---
+# LS upload
+code: |
+  file_submitted_to_LS = post_file_to_legalserver_documents_webhook(
+    legalserver_site=legalserver_site,
+    file_path=al_user_bundle.as_zip().path(),
+    legalserver_matter_uuid=legalserver_matter_uuid
+  )
+  send_all_to_legalserver = True
+---
+id: download
+event: download_docs
+question: |
+  Your document is ready
+subquestion: |
+  % if stored_data:
+  We also sent a copy of the document below to the Legal Server case file.
+  % endif
+
+  View, download and send your form below. Click the "Edit answers" button to fix any mistakes.
+  ${ action_button_html(url_action('review_answers'), label='Edit answers', color='info') }
+  
+  
+  ${ al_user_bundle.download_list_html() }
+  
+
+  ${ al_user_bundle.send_button_html(show_editable_checkbox=True) }
+---
+# ALDocument objects specify the metadata for each template
+objects:
+  - cba_ch7_pro_bono_service_application_2024_attachment: ALDocument.using(title="Bankruptcy Pro Bono Service Application", filename="cba_ch7_pro_bono_service_application_2024", enabled=True, has_addendum=False, )
+---
+# Bundles group the ALDocuments into separate downloads, such as for court and for the user
+objects:
+  - al_user_bundle: ALDocumentBundle.using(elements=[ cba_ch7_pro_bono_service_application_2024_attachment], filename="cba_ch7_pro_bono_service_application_2024", title="All forms to download for your records", enabled=True)
+  - al_court_bundle: ALDocumentBundle.using(elements=[cba_ch7_pro_bono_service_application_2024_attachment],  filename="cba_ch7_pro_bono_service_application_2024", title="All forms to deliver to court", enabled=True)
+---
+attachment:
+  name: cba ch7 pro bono service application 2024
+  filename: cba_ch7_pro_bono_service_application_2024
+  variable name: cba_ch7_pro_bono_service_application_2024_attachment[i]
+  docx template file: cba_ch7_pro_bono_service_application_2024.docx
+  tagged pdf: True
+
+
+
