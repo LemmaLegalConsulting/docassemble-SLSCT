@@ -17,7 +17,7 @@ readme = "README.md"
 authors = [
     { name = "Jim Graszer", email = "jim@lemmalegal.com" },
 ]
-dependencies = []
+dependencies = ["docassemble.AssemblyLine", "docassemble.WorkflowDocs @ git+https://github.com/LemmaLegalConsulting/docassemble-WorkflowDocs.git"]
 
 [project.urls]
 Homepage = "https://docassemble.org"
