@@ -53,7 +53,7 @@ setup(name='docassemble.SLSCT',
       license='MIT',
       url='https://docassemble.org',
       packages=find_namespace_packages(),
-      install_requires=[],
+      install_requires=['docassemble.AssemblyLine', 'docassemble.WorkflowDocs @ git+https://github.com/LemmaLegalConsulting/docassemble-WorkflowDocs.git@98902b752b72f360fb017902225a8dd46d0c4eb5'],
       zip_safe=False,
       package_data=find_package_data(where='docassemble/SLSCT/', package='docassemble.SLSCT'),
      )
