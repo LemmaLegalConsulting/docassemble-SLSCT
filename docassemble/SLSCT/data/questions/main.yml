@@ -48,7 +48,7 @@ code: |
     wfd_configuration_key = "UNDEFINED"
 ---
 code: |
-  wfd_storage_method = get_config("workflowdocs",{}).get("clients").get(wfd_configuration_key,{}).get("storage", {}).get("type") # Usually one of S3 or SharePoint
+  wfd_storage_method = get_config("workflowdocs",{}).get("clients", {}).get(wfd_configuration_key,{}).get("storage", {}).get("type") # Usually one of S3 or SharePoint
 ---
 ---
 code: |
